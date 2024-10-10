@@ -8,26 +8,21 @@ export async function GET() {
   return NextResponse.json(products);
 }
 
-//PUT to the cart
 export async function PUT(request: Request) {
   const { id, quantity } = await request.json();
-  const updatedProduct = await prisma.product.update({
-    where: { id },
-    data: { quantity, inCart: true },
-  });
-
-  return NextResponse.json(updatedProduct);
-}
-
-export async function POST(request: Request) {
-  const { id, quantity } = await request.json();
-
   const updatedProduct = await prisma.product.update({
     where: { id },
     data: { quantity, inCart: false },
   });
 
   return NextResponse.json(updatedProduct);
+}
+
+export async function POST(request: Request) {
+  const { name, quantity } = await request.json();
+  const product = await prisma.product.create({ data: { name, quantity, inCart: false } });
+
+  return NextResponse.json(product);
 }
 
 export async function DELETE(request: Request) {

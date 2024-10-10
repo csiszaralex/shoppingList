@@ -1,32 +1,38 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-
-type Product = {
-  id: number;
-  name: string;
-  quantity: number;
-  quantityInCart: number;
-};
+import { useEffect, useState } from 'react';
+import AddProduct from './AddProduct';
+import { Product } from './api/types/Product';
+import CurrentStock from './currentStock';
+import ShoppingList from './shoppingList';
 
 export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchProducts = async () => {
+    fetchProducts();
+    const interval = setInterval(() => {
+      fetchProducts();
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
       const res = await fetch('/api/products');
       const data = await res.json();
-      setProducts(data.map((p: Product) => ({ ...p, quantityInCart: 0 })));
+      setProducts(data);
       setLoading(false);
-    };
-
-    fetchProducts();
-  }, []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
+  };
 
   const updateProduct = async (id: number, quantity: number) => {
     await fetch('/api/products', {
-      method: 'POST',
+      method: 'PUT',
       body: JSON.stringify({ id, quantity }),
       headers: {
         'Content-Type': 'application/json',
@@ -38,6 +44,18 @@ export default function HomePage() {
         product.id === id ? { ...product, inCart: false, quantity } : product
       )
     );
+  };
+
+  const addProduct = async (name: string, quantity: number) => {
+    setLoading(true);
+    await fetch('/api/products', {
+      method: 'POST',
+      body: JSON.stringify({ name, quantity }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    fetchProducts();
   };
 
   const handleUseProduct = async (id: number) => {
@@ -69,87 +87,30 @@ export default function HomePage() {
   function handleRestock() {
     products.forEach((product) => {
       if (product.quantityInCart > 0) {
-        updateProduct(product.id, product.quantityInCart+product.quantity); // Például újra feltöltjük 10 darabra
+        updateProduct(product.id, product.quantityInCart + product.quantity);
       }
     });
-    setProducts((prevProducts) =>
-      prevProducts.map((p) => ({ ...p, quantityInCart: 0 }))
-    );
+    setProducts((prevProducts) => prevProducts.map((p) => ({ ...p, quantityInCart: 0 })));
   }
 
   if (loading) return <p>Loading...</p>;
 
   return (
-    <div className="container mx-auto p-4">
-  <h1 className="text-3xl font-bold mb-4 dark:text-white">Current Stock</h1>
-  <ul className="space-y-4">
-    {products.map((product) => (
-      <li
-        key={product.id}
-        className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow-md"
-      >
-        <div className="text-lg dark:text-gray-200">
-          {product.name} -{' '}
-          <span className={product.quantity === 0 ? 'text-red-500' : 'text-green-500'}>
-            {product.quantity} in stock
-          </span>
-        </div>
-        <div className="space-x-2">
-          <button
-            onClick={() => handleUseProduct(product.id)}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
-          >
-            Use
-          </button>
-          <button
-            onClick={() => updateProduct(product.id, 0)}
-            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
-          >
-            Use All
-          </button>
-        </div>
-      </li>
-    ))}
-  </ul>
+    <div className='container mx-auto p-4'>
+      <CurrentStock
+        products={products}
+        handleUseProduct={handleUseProduct}
+        updateProduct={updateProduct}
+      />
 
-  <h2 className="text-2xl font-semibold mt-8 mb-4 dark:text-white">Shopping List</h2>
-  <ul className="space-y-4">
-    {products.map((product) => (
-      <li
-        key={product.id}
-        className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow-md"
-      >
-        <div className="flex items-center space-x-4 dark:text-gray-200">
-          <button
-            onClick={() => handleShoppingCart(product.id, -1)}
-            className="px-3 py-1 bg-gray-300 dark:bg-gray-600 rounded-full hover:bg-gray-400 dark:hover:bg-gray-700 transition"
-          >
-            -
-          </button>
-          <span className="text-lg">{product.name}</span>
-          <button
-            onClick={() => handleShoppingCart(product.id, 1)}
-            className="px-3 py-1 bg-gray-300 dark:bg-gray-600 rounded-full hover:bg-gray-400 dark:hover:bg-gray-700 transition"
-          >
-            +
-          </button>
-        </div>
-        <div className="text-lg dark:text-gray-200">
-          <span className="font-bold">{product.quantityInCart}</span> in cart
-        </div>
-      </li>
-    ))}
-  </ul>
+      <ShoppingList
+        products={products}
+        handleShoppingCart={handleShoppingCart}
+        handleRestock={handleRestock}
+      />
 
-  <button
-    onClick={handleRestock}
-    className="mt-8 w-full py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition dark:bg-green-700 dark:hover:bg-green-800"
-  >
-    Restock
-  </button>
-</div>
-
-
+      <AddProduct onAddProduct={addProduct} />
+    </div>
   );
 }
 
