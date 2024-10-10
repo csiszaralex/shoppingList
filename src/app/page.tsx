@@ -1,101 +1,155 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useState, useEffect } from 'react';
+
+type Product = {
+  id: number;
+  name: string;
+  quantity: number;
+  quantityInCart: number;
+};
+
+export default function HomePage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      const res = await fetch('/api/products');
+      const data = await res.json();
+      setProducts(data.map((p: Product) => ({ ...p, quantityInCart: 0 })));
+      setLoading(false);
+    };
+
+    fetchProducts();
+  }, []);
+
+  const updateProduct = async (id: number, quantity: number) => {
+    await fetch('/api/products', {
+      method: 'POST',
+      body: JSON.stringify({ id, quantity }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    setProducts((prevProducts) =>
+      prevProducts.map((product) =>
+        product.id === id ? { ...product, inCart: false, quantity } : product
+      )
+    );
+  };
+
+  const handleUseProduct = async (id: number) => {
+    await fetch('/api/products', {
+      method: 'DELETE',
+      body: JSON.stringify({ id }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    setProducts((prevProducts) =>
+      prevProducts.map((product) =>
+        product.id === id ? { ...product, inCart: false, quantity: product.quantity - 1 } : product
+      )
+    );
+  };
+
+  const handleShoppingCart = async (id: number, db: number) => {
+    setProducts((prevProducts) =>
+      prevProducts.map((p) =>
+        p.id === id
+          ? { ...p, quantityInCart: p.quantityInCart + db < 0 ? 0 : p.quantityInCart + db }
+          : p
+      )
+    );
+  };
+
+  function handleRestock() {
+    products.forEach((product) => {
+      if (product.quantityInCart > 0) {
+        updateProduct(product.id, product.quantityInCart+product.quantity); // Például újra feltöltjük 10 darabra
+      }
+    });
+    setProducts((prevProducts) =>
+      prevProducts.map((p) => ({ ...p, quantityInCart: 0 }))
+    );
+  }
+
+  if (loading) return <p>Loading...</p>;
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="container mx-auto p-4">
+  <h1 className="text-3xl font-bold mb-4 dark:text-white">Current Stock</h1>
+  <ul className="space-y-4">
+    {products.map((product) => (
+      <li
+        key={product.id}
+        className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow-md"
+      >
+        <div className="text-lg dark:text-gray-200">
+          {product.name} -{' '}
+          <span className={product.quantity === 0 ? 'text-red-500' : 'text-green-500'}>
+            {product.quantity} in stock
+          </span>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        <div className="space-x-2">
+          <button
+            onClick={() => handleUseProduct(product.id)}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+          >
+            Use
+          </button>
+          <button
+            onClick={() => updateProduct(product.id, 0)}
+            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
+          >
+            Use All
+          </button>
+        </div>
+      </li>
+    ))}
+  </ul>
+
+  <h2 className="text-2xl font-semibold mt-8 mb-4 dark:text-white">Shopping List</h2>
+  <ul className="space-y-4">
+    {products.map((product) => (
+      <li
+        key={product.id}
+        className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow-md"
+      >
+        <div className="flex items-center space-x-4 dark:text-gray-200">
+          <button
+            onClick={() => handleShoppingCart(product.id, -1)}
+            className="px-3 py-1 bg-gray-300 dark:bg-gray-600 rounded-full hover:bg-gray-400 dark:hover:bg-gray-700 transition"
+          >
+            -
+          </button>
+          <span className="text-lg">{product.name}</span>
+          <button
+            onClick={() => handleShoppingCart(product.id, 1)}
+            className="px-3 py-1 bg-gray-300 dark:bg-gray-600 rounded-full hover:bg-gray-400 dark:hover:bg-gray-700 transition"
+          >
+            +
+          </button>
+        </div>
+        <div className="text-lg dark:text-gray-200">
+          <span className="font-bold">{product.quantityInCart}</span> in cart
+        </div>
+      </li>
+    ))}
+  </ul>
+
+  <button
+    onClick={handleRestock}
+    className="mt-8 w-full py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition dark:bg-green-700 dark:hover:bg-green-800"
+  >
+    Restock
+  </button>
+</div>
+
+
   );
 }
+
