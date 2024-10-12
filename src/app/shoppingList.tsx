@@ -1,4 +1,4 @@
-import { Product } from './api/types/Product';
+import { Product } from './types/Product';
 
 type ShoppingCartProps = {
   products: Product[];

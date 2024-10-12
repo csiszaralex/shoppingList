@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import AddProduct from './AddProduct';
-import { Product } from './api/types/Product';
 import CurrentStock from './currentStock';
 import ShoppingList from './shoppingList';
+import { Product } from './types/Product';
 
 export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<'stock' | 'shopping'>('shopping'); // Választó állapota
+  const [isModalOpen, setIsModalOpen] = useState(false); // Felugró ablak állapota
 
   useEffect(() => {
     fetchProducts();
@@ -23,7 +25,13 @@ export default function HomePage() {
     try {
       const res = await fetch('/api/products');
       const data = await res.json();
-      setProducts(data);
+      const cartQuantities = JSON.parse(localStorage.getItem('cartQuantities') || '{}');
+      setProducts(
+        data.map((product: Product) => ({
+          ...product,
+          quantityInCart: cartQuantities[product.id] || 0,
+        }))
+      );
       setLoading(false);
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -75,13 +83,19 @@ export default function HomePage() {
   };
 
   const handleShoppingCart = async (id: number, db: number) => {
-    setProducts((prevProducts) =>
-      prevProducts.map((p) =>
+    setProducts((prevProducts) => {
+      const updatedProducts = prevProducts.map((p) =>
         p.id === id
           ? { ...p, quantityInCart: p.quantityInCart + db < 0 ? 0 : p.quantityInCart + db }
           : p
-      )
-    );
+      );
+      const cartQuantities = updatedProducts.reduce((acc, product) => {
+        acc[product.id] = product.quantityInCart;
+        return acc;
+      }, {} as Record<number, number>);
+      localStorage.setItem('cartQuantities', JSON.stringify(cartQuantities));
+      return updatedProducts;
+    });
   };
 
   function handleRestock() {
@@ -91,25 +105,88 @@ export default function HomePage() {
       }
     });
     setProducts((prevProducts) => prevProducts.map((p) => ({ ...p, quantityInCart: 0 })));
+    localStorage.setItem('cartQuantities', JSON.stringify({}));
   }
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) {
+    return (
+      <div className='flex justify-center items-center h-screen'>
+        <div className='loader'></div>
+      </div>
+    );
+  }
 
   return (
     <div className='container mx-auto p-4'>
-      <CurrentStock
-        products={products}
-        handleUseProduct={handleUseProduct}
-        updateProduct={updateProduct}
-      />
+      {/* Választó */}
+      <div className='flex justify-center mb-4'>
+        <button
+          onClick={() => setView('stock')}
+          className={`px-4 py-2 w-1/2 rounded-l-full ${
+            view === 'stock'
+              ? 'bg-blue-500 text-white dark:bg-blue-700'
+              : 'bg-gray-200 text-black dark:bg-gray-700 dark:text-white'
+          }`}
+        >
+          Current Stock
+        </button>
+        <button
+          onClick={() => setView('shopping')}
+          className={`px-4 py-2 w-1/2 rounded-r-full ${
+            view === 'shopping'
+              ? 'bg-blue-500 text-white dark:bg-blue-700'
+              : 'bg-gray-200 text-black dark:bg-gray-700 dark:text-white'
+          }`}
+        >
+          Shopping List
+        </button>
+      </div>
 
-      <ShoppingList
-        products={products}
-        handleShoppingCart={handleShoppingCart}
-        handleRestock={handleRestock}
-      />
+      {/* Választott nézet megjelenítése */}
+      {view === 'stock' ? (
+        <>
+          <CurrentStock
+            products={products}
+            handleUseProduct={handleUseProduct}
+            updateProduct={updateProduct}
+          />
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className='mt-8 w-full py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition dark:bg-green-700 dark:hover:bg-green-800 mb-4'
+          >
+            Add Product
+          </button>
+        </>
+      ) : (
+        <ShoppingList
+          products={products}
+          handleShoppingCart={handleShoppingCart}
+          handleRestock={handleRestock}
+        />
+      )}
 
-      <AddProduct onAddProduct={addProduct} />
+      {isModalOpen && (
+        <div
+          className='fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center'
+          onClick={() => setIsModalOpen(false)} // Close modal on backdrop click
+        >
+          <div
+            className='bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-2xl relative'
+            onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
+          >
+            {/* X gomb a bezáráshoz */}
+            <button
+              onClick={() => setIsModalOpen(false)}
+              className='absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white'
+            >
+              &times;
+            </button>
+
+            <h2 className='text-2xl mb-4 dark:text-white'>Add New Product</h2>
+            <AddProduct onAddProduct={addProduct} isInModal />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
