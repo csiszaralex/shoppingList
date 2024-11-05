@@ -14,8 +14,8 @@ datasource db {
 }
 
 model Product {
-  id         Int      @id @default(autoincrement())
-  name       String
-  quantity   Int
-  inCart     Boolean   @default(false)
+  id       Int     @id @default(autoincrement())
+  name     String  @unique
+  quantity Int
+  inCart   Boolean @default(false)
 }
